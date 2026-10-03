@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [rx, , ready] = useLocal<StoredRx | null>(KEYS.rx, null);
   const [checkIns] = useLocal<StoredCheckIn[]>(KEYS.checkIns, []);
   const [adherence, setAdherence] = useLocal<AdherenceMap>(KEYS.adherence, {});
+  const [now] = useState(() => Date.now());
   const [toast, setToast] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ summary: string; thingsToMention: string[] } | string | null>(null);
 
@@ -42,7 +43,7 @@ export default function DashboardPage() {
   const sorted = [...checkIns].sort((a, b) => b.at.localeCompare(a.at));
   const latest = sorted[0];
   const f = rx.extraction.followUp;
-  const followDays = f.required && f.afterDays != null ? Math.ceil((new Date(rx.at).getTime() + f.afterDays * 86400000 - Date.now()) / 86400000) : null;
+  const followDays = f.required && f.afterDays != null ? Math.ceil((new Date(rx.at).getTime() + f.afterDays * 86400000 - now) / 86400000) : null;
 
   function mark(key: string, status: "taken" | "missed" | null) {
     const next = { ...adherence };

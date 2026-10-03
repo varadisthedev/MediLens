@@ -39,6 +39,7 @@ async function chatJSON<T extends z.ZodType>(schema: T, messages: Msg[]): Promis
     } catch {
       throw new LocalAIUnavailableError("Ollama unreachable");
     }
+    if (res.status === 404) throw new LocalAIUnavailableError(`Model "${MODEL}" is not installed in Ollama`);
     if (!res.ok) throw new LocalAIUnavailableError(`Ollama ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as { message?: { content?: string } };
     return data.message?.content ?? "";
