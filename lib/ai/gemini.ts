@@ -17,41 +17,44 @@ Rules:
 - For concerning symptoms use: "If symptoms are worsening or you are concerned, contact your clinician or seek appropriate medical care."
 - Questions for the clinician must be questions only, not advice.`;
 
-function client() {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new CloudUnavailableError("GEMINI_API_KEY not set");
-  return new GoogleGenAI({ apiKey: key });
-}
+/** GEMINI_API_KEY, then GEMINI_API_KEY_2..4: later keys are only used when earlier ones are missing or rejected. */
+export const geminiKeys = () =>
+  ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3", "GEMINI_API_KEY_4"].map((n) => process.env[n]?.trim()).filter((k): k is string => !!k);
+
+// Errors that mean "this key can't serve the request" (bad key, no access, quota), so try the next key.
+const KEY_PROBLEM = /"code":\s*(400|401|403|429)|API_KEY_INVALID|PERMISSION_DENIED|RESOURCE_EXHAUSTED/;
+const TRANSIENT = /"code":\s*503/;
 
 async function generate<T extends z.ZodType>(schema: T, prompt: string): Promise<z.infer<T>> {
-  const call = () =>
-    client().models.generateContent({
-      model: MODEL,
-      contents: prompt,
-      config: {
-        systemInstruction: GUARDRAILS,
-        responseMimeType: "application/json",
-        responseJsonSchema: z.toJSONSchema(schema),
-        temperature: 0.2,
-      },
-    });
-  try {
-    let res;
-    // Gemini returns transient 503s under load; one retry is enough for a demo.
+  const keys = geminiKeys();
+  if (!keys.length) throw new CloudUnavailableError("No Gemini API key is set");
+  const config = {
+    systemInstruction: GUARDRAILS,
+    responseMimeType: "application/json",
+    responseJsonSchema: z.toJSONSchema(schema),
+    temperature: 0.2,
+  };
+
+  for (const [i, apiKey] of keys.entries()) {
+    const ai = new GoogleGenAI({ apiKey });
     for (let attempt = 0; ; attempt++) {
       try {
-        res = await call();
-        break;
+        const res = await ai.models.generateContent({ model: MODEL, contents: prompt, config });
+        return schema.parse(JSON.parse(res.text ?? ""));
       } catch (e) {
-        if (attempt >= 2 || !/"code":\s*(503|429)/.test(String(e))) throw e;
-        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        const msg = String(e);
+        // Gemini returns transient 503s under load: retry the same key briefly.
+        if (TRANSIENT.test(msg) && attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        console.error(`[gemini] key ${i + 1}/${keys.length}:`, msg.slice(0, 300));
+        if (KEY_PROBLEM.test(msg) && i < keys.length - 1) break; // next key
+        throw new CloudUnavailableError("Gemini request failed");
       }
     }
-    return schema.parse(JSON.parse(res.text ?? ""));
-  } catch (e) {
-    console.error("[gemini]", e instanceof Error ? e.message.slice(0, 500) : e);
-    throw e instanceof CloudUnavailableError ? e : new CloudUnavailableError("Gemini request failed");
   }
+  throw new CloudUnavailableError("Gemini request failed");
 }
 
 export { buildGeminiPayloadClient as buildGeminiPayload } from "../payload";

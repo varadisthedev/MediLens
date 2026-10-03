@@ -44,10 +44,21 @@ export function courseDays(duration: string | null) {
   return m ? Number(m[1]) * ({ day: 1, week: 7, month: 30 }[m[2].toLowerCase() as "day"]) : null;
 }
 
-/** Share of recorded doses that were taken, or null when nothing has been recorded yet. */
-export function adherencePct(map: AdherenceMap) {
-  const v = Object.values(map);
-  return v.length ? Math.round((v.filter((s) => s === "taken").length / v.length) * 100) : null;
+/**
+ * Adherence = doses taken / doses scheduled, per day, from the first day of the plan (or the earliest recorded day) up to today.
+ * Doses not yet ticked count as not taken, so ticking 2 of 3 is 67%, not 100%.
+ */
+export function adherenceStats(map: AdherenceMap, scheduledPerDay: number, planStart: string, days = 7) {
+  const recorded = Object.keys(map).map((k) => k.split("|")[0]).sort();
+  const start = recorded[0] && recorded[0] < planStart ? recorded[0] : planStart;
+  const perDay = lastDays(days).map((d) => {
+    const total = d >= start ? scheduledPerDay : 0;
+    const taken = Object.entries(map).filter(([k, v]) => k.startsWith(d) && v === "taken").length;
+    return { d, taken: Math.min(taken, total || taken), total };
+  });
+  const total = perDay.reduce((n, x) => n + x.total, 0);
+  const taken = perDay.reduce((n, x) => n + (x.total ? x.taken : 0), 0);
+  return { pct: total ? Math.round((taken / total) * 100) : null, perDay };
 }
 
 export function lastDays(n: number) {

@@ -114,7 +114,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-5">
-          <Section title="Adherence"><AdherenceCard adherence={adherence} /></Section>
+          <Section title="Adherence"><AdherenceCard adherence={adherence} scheduledPerDay={scheduled.length} planStart={isoDay(new Date(rx.at))} /></Section>
 
           {courses.length > 0 && (
             <Section title="Course progress">

@@ -13,6 +13,7 @@ type Phase =
   | { p: "recording" }
   | { p: "stt"; pct: number | null }
   | { p: "gemma" }
+  | { p: "confirm"; warn: boolean }
   | { p: "typed" }
   | { p: "done"; transcript: string; data: CheckInExtraction }
   | { p: "error"; message: string; localDown?: boolean };
@@ -51,11 +52,19 @@ export function VoiceRecorder() {
     let transcript = "";
     try {
       transcript = await transcribeLocally(blob, (pct) => setPhase({ p: "stt", pct }));
-    } catch {
-      return setPhase({ p: "error", message: "Local speech recognition could not start (the model may need a one-time download). Type your check-in instead." });
+    } catch (e) {
+      const silent = e instanceof Error && e.message === "SILENT";
+      return setPhase({
+        p: "error",
+        message: silent
+          ? "The recording was silent. Check that the right microphone is selected and allowed, then record again, or type your check-in."
+          : "Local speech recognition could not start (the model may need a one-time download). Type your check-in instead.",
+      });
     }
-    if (transcript.length < 3) return setPhase({ p: "error", message: "We did not catch anything. Try again, or type your check-in." });
-    extract(transcript);
+    // Let the person check what was heard before Gemma sees it. Flag likely mis-hearings.
+    const words = transcript.toLowerCase().replace(/[^a-z' ]/g, " ").split(/\s+/).filter(Boolean);
+    setText(transcript);
+    setPhase({ p: "confirm", warn: words.length < 3 });
   }
 
   async function extract(transcript: string) {
@@ -110,6 +119,7 @@ export function VoiceRecorder() {
             {phase.p === "recording" && "Listening… click again when you are done."}
             {phase.p === "stt" && (phase.pct != null && phase.pct < 100 ? `Loading local speech model… ${phase.pct}%` : "Transcribing on this device…")}
             {phase.p === "gemma" && "Gemma 4 is structuring your check-in locally…"}
+            {phase.p === "confirm" && "Transcribed on this device. Nothing has been sent yet."}
           </p>
 
           {busy && (
@@ -118,6 +128,18 @@ export function VoiceRecorder() {
               <li className={phase.p === "stt" ? "" : "text-muted"}>{phase.p === "stt" ? "◌" : "✓"} Local speech-to-text (Whisper)</li>
               <li className={phase.p === "gemma" ? "" : "text-muted"}>{phase.p === "gemma" ? "◌" : "○"} Gemma 4 · structured check-in</li>
             </ol>
+          )}
+
+          {phase.p === "confirm" && (
+            <form onSubmit={(e) => { e.preventDefault(); extract(text); }} className="mt-6 w-full space-y-3 text-left">
+              <label htmlFor="ci-heard" className="eyebrow">What we heard — edit if needed</label>
+              <textarea id="ci-heard" value={text} onChange={(e) => setText(e.target.value)} rows={3} className="w-full rounded-lg border border-line bg-surface p-3 text-sm" />
+              {phase.warn && <p role="alert" className="rounded-lg bg-amber-soft px-3 py-2 text-sm text-amber">That looks very short. If it is wrong, correct it above or record again.</p>}
+              <div className="flex gap-3">
+                <Button type="submit" disabled={text.trim().length < 3}>Analyze locally</Button>
+                <Button type="button" variant="secondary" onClick={() => { setText(""); setPhase({ p: "idle" }); }}>Record again</Button>
+              </div>
+            </form>
           )}
 
           {phase.p === "error" && (
