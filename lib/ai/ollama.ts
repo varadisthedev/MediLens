@@ -61,7 +61,13 @@ async function chatJSON<T extends z.ZodType>(schema: T, messages: Msg[]): Promis
 const RX_SYSTEM = `You are extracting information from a photo of a prescription. Your job is NOT to diagnose.
 Extract only information that is visible or explicitly stated. Never invent medication names, dosage, frequency, duration, or instructions.
 If something is unclear or illegible: use null, add its path (e.g. "medications[0].name") to uncertainFields, and lower confidence (0-1).
-"timing" lists times of day (e.g. "morning","evening","bedtime"); expand abbreviations only when written: BD/BID = morning + evening, TDS = morning + afternoon + evening.
+Field rules:
+- patient.name is the person the prescription is FOR (after "Patient:"), never the doctor or clinic. null if absent.
+- name: the medicine only, without "Tab."/"Syp." prefixes. strength: the amount per unit (e.g. "500 mg"); never a volume the patient takes. dosage: how much per intake (e.g. "1 tablet", "10 ml").
+- frequency: how often, in words (e.g. "twice daily", "three times daily", "at bedtime", "as needed if fever"). Expand BD/BID = twice daily, TDS/TID = three times daily.
+- timing: only times of day written or implied by the abbreviation: BD = ["morning","evening"], TDS = ["morning","afternoon","evening"], "at bedtime" = ["bedtime"]. If the medicine is only taken when needed (e.g. "if fever"), use an empty timing array.
+- instructions: instructions specific to that medicine, including limits such as "max 3 tablets per day" and "after food". General advice for the patient goes in the top-level "instructions" list.
+- confidence: 0-1 honest certainty for that medicine. Use 0.9+ only if every field is clearly legible; lower it for anything inferred or hard to read.
 Return valid JSON only.`;
 
 export function analyzePrescriptionLocally(imageBase64: string) {
@@ -73,6 +79,8 @@ export function analyzePrescriptionLocally(imageBase64: string) {
 
 const CHECKIN_SYSTEM = `You extract what a patient explicitly reports in a daily check-in transcript. Do NOT diagnose and do NOT infer medical conditions.
 Only record symptoms, missed doses and progress the person actually states. wellbeing is 1 (very poor) to 5 (very good) only if they convey it, else null.
+Symptom status: "improved" (better), "same" (still there / unchanged), "worse", "new", "resolved" (gone). Use "unspecified" only if no change is described.
+missedDoses.medication is a medicine name only if the person names one, otherwise null. missedDoses.when is the day/time they state (e.g. "yesterday evening").
 Return valid JSON only.`;
 
 export function analyzeCheckInLocally(transcript: string) {

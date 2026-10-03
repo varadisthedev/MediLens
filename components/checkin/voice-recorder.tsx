@@ -4,8 +4,8 @@ import { AIPipeline, LocalBadge } from "@/components/ai/ai-pipeline";
 import { Button } from "@/components/ui/button";
 import { CheckInExtraction } from "@/lib/ai/types";
 import { transcribeLocally } from "@/lib/ai/stt-browser";
-import { applyMissed } from "@/lib/schedule";
-import { KEYS, mirrorToDb, readLocal, writeLocal, type AdherenceMap, type StoredCheckIn, type StoredRx } from "@/lib/store";
+import { applyMissed, patientName } from "@/lib/schedule";
+import { adhKey, KEYS, mirrorToDb, readLocal, writeLocal, type AdherenceMap, type StoredCheckIn, type StoredRx } from "@/lib/store";
 import { DEMO_PATIENT } from "@/lib/demo";
 
 type Phase =
@@ -77,8 +77,8 @@ export function VoiceRecorder() {
     const list = readLocal<StoredCheckIn[]>(KEYS.checkIns, []);
     writeLocal(KEYS.checkIns, [...list, { id: crypto.randomUUID(), at: new Date().toISOString(), transcript, data }]);
     if (rx && data.adherence.missedDoses.length)
-      writeLocal(KEYS.adherence, applyMissed(rx.extraction, data.adherence.missedDoses, readLocal<AdherenceMap>(KEYS.adherence, {})));
-    mirrorToDb({ kind: "checkin", transcript, data, patientName: rx?.extraction.patient.name ?? DEMO_PATIENT });
+      writeLocal(adhKey(rx), applyMissed(rx.extraction, data.adherence.missedDoses, readLocal<AdherenceMap>(adhKey(rx), {})));
+    mirrorToDb({ kind: "checkin", transcript, data, patientName: patientName(rx?.extraction.patient.name ?? null) ?? DEMO_PATIENT });
   }
 
   const busy = phase.p === "stt" || phase.p === "gemma";

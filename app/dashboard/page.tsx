@@ -1,25 +1,33 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TodayPlan } from "@/components/dashboard/today-plan";
+import { Progress } from "@/components/ui/progress";
+import { Stepper } from "@/components/stepper";
+import { AddMedicine } from "@/components/dashboard/add-medicine";
 import { AdherenceCard } from "@/components/dashboard/adherence-card";
+import { DaySchedule } from "@/components/dashboard/day-schedule";
 import { SymptomChart } from "@/components/dashboard/symptom-chart";
 import { DEMO_PATIENT } from "@/lib/demo";
-import { dosesFor, isoDay, type Dose } from "@/lib/schedule";
-import { KEYS, useLocal, type AdherenceMap, type StoredCheckIn, type StoredRx } from "@/lib/store";
+import { courseDays, dosesFor, isoDay, patientName, type Dose } from "@/lib/schedule";
+import { adhKey, KEYS, takenKey, useLocal, type AdherenceMap, type StoredCheckIn, type StoredRx, type TakenAtMap } from "@/lib/store";
+
+type Med = StoredRx["extraction"]["medications"][number];
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="border-t border-line pt-6">
+  <section className="rounded-2xl border border-line bg-surface p-5">
     <h2 className="eyebrow mb-4">{title}</h2>
     {children}
   </section>
 );
 
 export default function DashboardPage() {
-  const [rx, , ready] = useLocal<StoredRx | null>(KEYS.rx, null);
+  const [rx, setRx, ready] = useLocal<StoredRx | null>(KEYS.rx, null);
   const [checkIns] = useLocal<StoredCheckIn[]>(KEYS.checkIns, []);
-  const [adherence, setAdherence] = useLocal<AdherenceMap>(KEYS.adherence, {});
+  const [adherence, setAdherence] = useLocal<AdherenceMap>(adhKey(rx), {});
+  const [takenAt, setTakenAt] = useLocal<TakenAtMap>(takenKey(rx), {});
   const [now] = useState(() => Date.now());
+  const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ summary: string; thingsToMention: string[] } | string | null>(null);
 
@@ -37,20 +45,31 @@ export default function DashboardPage() {
     );
 
   const doses = dosesFor(rx.extraction);
-  const name = rx.extraction.patient.name ?? (rx.demo ? DEMO_PATIENT : null);
+  const today = isoDay();
+  const scheduled = doses.filter((d) => !d.asNeeded);
+  const takenToday = scheduled.filter((d) => adherence[`${today}|${d.key}`] === "taken").length;
+  const name = patientName(rx.extraction.patient.name) ?? (rx.demo ? DEMO_PATIENT : null);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const sorted = [...checkIns].sort((a, b) => b.at.localeCompare(a.at));
   const latest = sorted[0];
   const f = rx.extraction.followUp;
   const followDays = f.required && f.afterDays != null ? Math.ceil((new Date(rx.at).getTime() + f.afterDays * 86400000 - now) / 86400000) : null;
+  const courses = rx.extraction.medications
+    .map((m, i) => ({ m, i, total: courseDays(m.duration) }))
+    .filter((c): c is { m: Med; i: number; total: number } => c.total != null && !!c.m.name);
 
-  function mark(key: string, status: "taken" | "missed" | null) {
-    const next = { ...adherence };
-    const k = `${isoDay()}|${key}`;
-    if (status) next[k] = status;
-    else delete next[k];
-    setAdherence(next);
+  function toggle(d: Dose) {
+    const k = `${today}|${d.key}`;
+    const a = { ...adherence }, t = { ...takenAt };
+    if (a[k] === "taken") { delete a[k]; delete t[k]; } else { a[k] = "taken"; t[k] = new Date().toISOString(); }
+    setAdherence(a);
+    setTakenAt(t);
+  }
+
+  function addMedicine(m: Med) {
+    setRx({ ...rx!, extraction: { ...rx!.extraction, medications: [...rx!.extraction.medications, m] } });
+    setAdding(false);
   }
 
   async function remind(d: Dose) {
@@ -68,17 +87,53 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10 md:py-16">
-      <p className="eyebrow">{new Date().toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric" })}{rx.demo && " · Demo patient"}</p>
-      <h1 className="mt-2 font-serif text-4xl tracking-tight md:text-5xl">{greeting}{name ? `, ${name}` : ""}.</h1>
-      <p className="mt-3 text-muted">Your treatment plan at a glance.</p>
+    <div className="mx-auto max-w-6xl px-5 py-10 md:py-14">
+      <Stepper current={4} />
 
-      <div className="mt-10 grid gap-x-16 gap-y-10 lg:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-10">
-          <Section title="Today">
-            <TodayPlan doses={doses} adherence={adherence} onMark={mark} onRemind={remind} />
-            <p className="mt-3 min-h-5 text-xs text-muted" role="status">{toast}</p>
-          </Section>
+      <div className="mt-10 flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <p className="eyebrow">Daily schedule{rx.demo && " · Demo patient"}</p>
+          <h1 className="mt-2 font-serif text-4xl tracking-tight md:text-5xl">{new Date().toLocaleDateString("en", { weekday: "long", day: "numeric", month: "long" })}</h1>
+          <p className="mt-2 text-muted">{greeting}{name ? `, ${name}` : ""}. Your treatment plan at a glance.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+            <span className="text-muted">Progress:</span>
+            <span className="font-medium">{takenToday} of {scheduled.length} taken</span>
+            <div className="w-16"><Progress value={takenToday} max={scheduled.length || 1} label="Doses taken today" /></div>
+          </div>
+          <Button onClick={() => setAdding(true)}>＋ Add medicine</Button>
+        </div>
+      </div>
+      <p className="mt-1 min-h-5 text-xs text-muted" role="status">{toast}</p>
+
+      <div className="mt-4 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className="space-y-5">
+          {adding && <AddMedicine onAdd={addMedicine} onClose={() => setAdding(false)} />}
+          <DaySchedule doses={doses} adherence={adherence} takenAt={takenAt} onToggle={toggle} onRemind={remind} />
+        </div>
+
+        <div className="space-y-5">
+          <Section title="Adherence"><AdherenceCard adherence={adherence} /></Section>
+
+          {courses.length > 0 && (
+            <Section title="Course progress">
+              <ul className="space-y-4">
+                {courses.map(({ m, i, total }) => {
+                  const day = Math.min(total, Math.max(1, Math.floor((now - new Date(rx.at).getTime()) / 86400000) + 1));
+                  return (
+                    <li key={i}>
+                      <div className="mb-1.5 flex justify-between text-sm">
+                        <span className="font-medium">{m.name}</span>
+                        <span className="text-muted">Day {day} of {total}</span>
+                      </div>
+                      <Progress value={day} max={total} label={`${m.name} course`} />
+                    </li>
+                  );
+                })}
+              </ul>
+            </Section>
+          )}
 
           <Section title="Check-in">
             <p className="font-serif text-2xl">How are you feeling today?</p>
@@ -108,10 +163,7 @@ export default function DashboardPage() {
               </div>
             )}
           </Section>
-        </div>
 
-        <div className="space-y-10">
-          <Section title="Adherence"><AdherenceCard adherence={adherence} /></Section>
           <Section title="Upcoming">
             {f.required ? (
               <div>
@@ -121,12 +173,9 @@ export default function DashboardPage() {
             ) : (
               <p className="text-sm text-muted">No follow-up was written on this prescription.</p>
             )}
-          </Section>
-          <Section title="Prescription">
-            <p className="text-sm text-muted">{rx.extraction.medications.length} medications, read locally by Gemma 4.</p>
-            <div className="mt-3 flex gap-4 text-sm">
-              <a className="underline underline-offset-4" href="/prescription">Review</a>
-              <a className="underline underline-offset-4" href="/privacy">Privacy</a>
+            <div className="mt-4 flex gap-4 text-sm">
+              <Link className="underline underline-offset-4" href="/prescription">Review prescription</Link>
+              <Link className="underline underline-offset-4" href="/history">History</Link>
             </div>
           </Section>
         </div>

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { buildGeminiPayloadClient } from "../payload";
 import { Explanation } from "./types";
 
-const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
 
 export class CloudUnavailableError extends Error {}
 
@@ -24,8 +24,8 @@ function client() {
 }
 
 async function generate<T extends z.ZodType>(schema: T, prompt: string): Promise<z.infer<T>> {
-  try {
-    const res = await client().models.generateContent({
+  const call = () =>
+    client().models.generateContent({
       model: MODEL,
       contents: prompt,
       config: {
@@ -35,8 +35,21 @@ async function generate<T extends z.ZodType>(schema: T, prompt: string): Promise
         temperature: 0.2,
       },
     });
+  try {
+    let res;
+    // Gemini returns transient 503s under load; one retry is enough for a demo.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        res = await call();
+        break;
+      } catch (e) {
+        if (attempt >= 2 || !/"code":\s*(503|429)/.test(String(e))) throw e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
     return schema.parse(JSON.parse(res.text ?? ""));
   } catch (e) {
+    console.error("[gemini]", e instanceof Error ? e.message.slice(0, 500) : e);
     throw e instanceof CloudUnavailableError ? e : new CloudUnavailableError("Gemini request failed");
   }
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DEMO_IMAGE, demoAdherence, demoCheckIns } from "@/lib/demo";
 import { dosesFor } from "@/lib/schedule";
-import { KEYS, readLocal, writeLocal, type StoredRx } from "@/lib/store";
+import { adhKey, KEYS, readLocal, writeLocal, type StoredRx } from "@/lib/store";
 
 export default function DemoPage() {
   const [seeded, setSeeded] = useState(false);
@@ -22,7 +22,7 @@ export default function DemoPage() {
     const rx = readLocal<StoredRx | null>(KEYS.rx, null);
     if (!rx) return;
     writeLocal(KEYS.checkIns, demoCheckIns());
-    writeLocal(KEYS.adherence, demoAdherence(dosesFor(rx.extraction)));
+    writeLocal(adhKey(rx), demoAdherence(dosesFor(rx.extraction)));
     setSeeded(true);
   }
 

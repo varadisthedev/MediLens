@@ -3,7 +3,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { KEYS, writeLocal, type StoredRx } from "@/lib/store";
+import { getScope, KEYS, writeLocal, type StoredRx } from "@/lib/store";
+import { putScan } from "@/lib/scans";
 import { PrescriptionExtraction } from "@/lib/ai/types";
 
 /** Downscale on the device so the local model stays fast. Returns raw base64 JPEG + a preview URL. */
@@ -46,7 +47,9 @@ export function PrescriptionScanner({ demoImage, demoLabel }: { demoImage?: stri
       const j = await res.json();
       if (!res.ok) return setState({ s: "error", preview, base64, message: j.error ?? "Something went wrong.", localDown: j.code === "LOCAL_AI_UNAVAILABLE" });
       const rx = PrescriptionExtraction.parse(j.result);
-      const stored: StoredRx = { extraction: rx, explanation: null, payload: null, demo: !!demoImage, at: new Date().toISOString() };
+      const stored: StoredRx = { extraction: rx, explanation: null, payload: null, demo: !!demoImage, at: new Date().toISOString(), scanId: crypto.randomUUID() };
+      // The photo is saved to this browser's history (IndexedDB); it is never uploaded.
+      await putScan({ id: stored.scanId!, scope: getScope(), at: stored.at, image: preview, extraction: rx, explanation: null, payload: null, demo: stored.demo });
       writeLocal(KEYS.rx, stored);
       setState({ s: "done", preview, rx, ms: j.ms });
     } catch {
@@ -143,6 +146,7 @@ export function PrescriptionScanner({ demoImage, demoLabel }: { demoImage?: stri
                   <Step done label="Prescription image analyzed" />
                   <Step done label={`${state.rx.medications.length} medication${state.rx.medications.length === 1 ? "" : "s"} extracted${state.rx.followUp.required ? ", 1 follow-up instruction" : ""}`} />
                   <Step done label="Sensitive image remains local" />
+                  <Step done label="Photo saved to your history on this device" />
                   <li className="pt-2 text-xs text-muted">Finished in {(state.ms / 1000).toFixed(1)}s</li>
                 </>
               )}

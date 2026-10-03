@@ -1,17 +1,26 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AIPipeline, CloudBadge, LocalBadge } from "@/components/ai/ai-pipeline";
 import { PrivacyPayload } from "@/components/ai/privacy-payload";
 import { MedicationRow } from "@/components/prescription/medication-row";
 import { Button } from "@/components/ui/button";
+import { Stepper } from "@/components/stepper";
+import { getScan, putScan } from "@/lib/scans";
 import { Explanation } from "@/lib/ai/types";
 import { KEYS, mirrorToDb, useLocal, type StoredRx } from "@/lib/store";
 import { DEMO_PATIENT } from "@/lib/demo";
+import { patientName } from "@/lib/schedule";
 
 export default function PrescriptionPage() {
   const [rx, setRx, ready] = useLocal<StoredRx | null>(KEYS.rx, null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [image, setImage] = useState<string | null>(null);
+
+  const scanId = rx?.scanId;
+  useEffect(() => {
+    if (scanId) getScan(scanId).then((sc) => setImage(sc?.image ?? null));
+  }, [scanId]);
 
   if (!ready) return null;
   if (!rx)
@@ -40,8 +49,10 @@ export default function PrescriptionPage() {
         setError(j.error ?? "Cloud explanation is temporarily unavailable.");
       } else {
         const explanation = Explanation.parse(j.explanation);
-        setRx({ ...rx!, explanation, payload: j.payload });
-        mirrorToDb({ kind: "prescription", extraction: e, explanation, patientName: e.patient.name ?? DEMO_PATIENT });
+        const next = { ...rx!, explanation, payload: j.payload };
+        setRx(next);
+        if (scanId) getScan(scanId).then((sc) => sc && putScan({ ...sc, explanation, payload: j.payload }));
+        mirrorToDb({ kind: "prescription", extraction: e, explanation, patientName: patientName(e.patient.name) ?? DEMO_PATIENT });
       }
     } catch {
       setError("Cloud explanation is temporarily unavailable.");
@@ -51,12 +62,21 @@ export default function PrescriptionPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 md:py-16">
-      <div className="flex flex-wrap items-center gap-3">
+      <Stepper current={ex ? 3 : 2} />
+      <div className="mt-10 flex flex-wrap items-center gap-3">
         <LocalBadge />
         {rx.demo && <span className="eyebrow">Demo prescription</span>}
       </div>
       <h1 className="mt-4 font-serif text-4xl tracking-tight md:text-5xl">Prescription</h1>
       <p className="mt-3 text-muted">Review the information extracted on your device.</p>
+
+      {image && (
+        <figure className="mt-8 flex items-center gap-4 rounded-xl border border-line bg-surface p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt="Your saved prescription photo" className="h-24 w-20 rounded-md border border-line object-cover object-top" />
+          <figcaption className="text-sm"><span className="font-medium">Original photo</span><br /><span className="text-muted">Saved in your history on this device only. <a href="/history" className="underline underline-offset-4">View history</a></span></figcaption>
+        </figure>
+      )}
 
       {uncertainCount > 0 && (
         <p className="mt-6 rounded-md border border-amber/30 bg-amber-soft p-4 text-sm text-amber">
@@ -65,7 +85,7 @@ export default function PrescriptionPage() {
       )}
 
       <dl className="mt-10 grid grid-cols-2 gap-6 border-y border-line py-5 sm:grid-cols-3">
-        <div><dt className="eyebrow">Patient</dt><dd className="mt-1 text-sm">{e.patient.name ?? "Not stated"}</dd></div>
+        <div><dt className="eyebrow">Patient</dt><dd className="mt-1 text-sm">{patientName(e.patient.name) ?? "Not stated"}</dd></div>
         <div><dt className="eyebrow">Date</dt><dd className="mt-1 text-sm">{e.prescriptionDate ?? "Not stated"}</dd></div>
         <div><dt className="eyebrow">Overall confidence</dt><dd className="mt-1 text-sm">{Math.round(e.overallConfidence * 100)}%</dd></div>
       </dl>
@@ -90,7 +110,7 @@ export default function PrescriptionPage() {
         </section>
       )}
 
-      <section className="mt-14 border-t border-line pt-10">
+      <section id="explanation" className="mt-14 border-t border-line pt-10">
         <p className="eyebrow">Next</p>
         <h2 className="mt-2 font-serif text-3xl">Explanation</h2>
         <div className="mt-6"><AIPipeline /></div>

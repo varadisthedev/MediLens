@@ -1,7 +1,6 @@
 import type { CheckInExtraction } from "./ai/types";
 import type { AdherenceMap, StoredCheckIn } from "./store";
-import type { Dose } from "./schedule";
-import { isoDay } from "./schedule";
+import { groupOf, isoDay, type Dose } from "./schedule";
 
 export const DEMO_PATIENT = "Varad";
 export const DEMO_IMAGE = "/demo/prescription.jpg";
@@ -32,9 +31,9 @@ export function demoCheckIns(): StoredCheckIn[] {
 export function demoAdherence(doses: Dose[]): AdherenceMap {
   const map: AdherenceMap = {};
   const scheduled = doses.filter((d) => !d.asNeeded);
+  const missed = scheduled.find((x) => groupOf(x.time) === "Evening") ?? scheduled[scheduled.length - 1];
   for (let ago = 5; ago >= 1; ago--)
     for (const d of scheduled)
-      map[`${isoDay(new Date(Date.now() - ago * 86400000))}|${d.key}`] =
-        ago === 2 && d === scheduled.filter((x) => x.time === "20:00")[0] ? "missed" : "taken";
+      map[`${isoDay(new Date(Date.now() - ago * 86400000))}|${d.key}`] = ago === 2 && d === missed ? "missed" : "taken";
   return map;
 }
