@@ -17,9 +17,10 @@ export default function AuthPage() {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
     setBusy(true);
-    setError(await signIn(mode, f));
+    const err = await signIn(mode, f);
+    setError(err);
     setBusy(false);
-    if (!error) router.push("/");
+    if (!err) router.push("/");
   }
 
   if (user)

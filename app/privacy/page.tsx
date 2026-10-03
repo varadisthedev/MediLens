@@ -23,9 +23,11 @@ export default function PrivacyPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 md:py-16">
-      <p className="eyebrow">Privacy</p>
-      <h1 className="mt-2 font-serif text-4xl tracking-tight md:text-6xl">Your data, by design.</h1>
-      <p className="mt-4 max-w-xl text-lg text-muted">We separate local understanding from cloud reasoning.</p>
+      <div className="rounded-2xl bg-[#161715] p-8 text-white md:p-12">
+        <p className="eyebrow !text-white/50">Privacy</p>
+        <h1 className="mt-3 font-serif text-4xl tracking-tight md:text-6xl">Your data, by design.</h1>
+        <p className="mt-4 max-w-xl text-lg text-white/70">We separate local understanding from cloud reasoning.</p>
+      </div>
 
       <div className="mt-12 grid gap-px overflow-hidden rounded-md border border-line bg-line md:grid-cols-[1fr_1fr]">
         <div className="bg-sage-soft p-6">

@@ -64,8 +64,9 @@ export default function Home() {
             ["Read locally", "Gemma 4 reads your prescription photo and listens to your check-ins on your own machine."],
             ["Explained when needed", "Only structured fields — never the photo or audio — go to Gemini for a plain-language explanation."],
             ["Useful offline", "If the cloud is down, your medication plan and check-ins still work."],
-          ].map(([t, d]) => (
+          ].map(([t, d], i) => (
             <div key={t}>
+              <span className="mb-4 grid h-7 w-7 place-items-center rounded-full bg-ink text-xs font-medium text-white">{i + 1}</span>
               <h2 className="font-serif text-2xl">{t}</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted">{d}</p>
             </div>
