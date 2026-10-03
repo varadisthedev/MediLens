@@ -1,69 +1,81 @@
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <>
+      <section className="mx-auto grid max-w-6xl gap-14 px-5 py-16 md:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div>
+          <p className="eyebrow">MediLens</p>
+          <h1 className="mt-4 font-serif text-5xl leading-[1.05] tracking-tight md:text-7xl">
+            Understand your prescription.
+            <br />
+            <em className="text-sage-ink">Privately.</em>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted">
+            Turn a prescription into a clear medication plan, reminders, and daily check-ins — with sensitive information processed locally first.
+          </p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Button href="/scan">Scan prescription</Button>
+            <Button href="/check-in" variant="secondary">Try a voice check-in</Button>
+          </div>
+          <p className="mt-6 text-sm text-muted">
+            No account needed. <a href="/demo" className="underline underline-offset-4 hover:text-ink">Open the demo</a> to see it with a sample prescription.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="rounded-md border border-line bg-surface">
+          <div className="flex items-center justify-between border-b border-line px-5 py-3">
+            <Badge tone="local">● Local AI · Gemma 4</Badge>
+            <span className="text-xs text-muted">on this device</span>
+          </div>
+          <div className="grid gap-px bg-line sm:grid-cols-2">
+            <div className="relative aspect-[3/4] bg-surface">
+              <Image src="/demo/prescription.jpg" alt="Sample prescription" fill sizes="(min-width: 1024px) 220px, 50vw" className="object-cover object-top" priority />
+              <div className="scan-line" aria-hidden />
+            </div>
+            <div className="bg-surface p-5 font-mono text-[11px] leading-relaxed text-ink/80">
+              <p className="text-muted">structured output</p>
+              <p className="mt-2">{"{"}</p>
+              <p className="pl-3">&quot;name&quot;: &quot;Amoxicillin&quot;,</p>
+              <p className="pl-3">&quot;strength&quot;: &quot;500 mg&quot;,</p>
+              <p className="pl-3">&quot;timing&quot;: [</p>
+              <p className="pl-6">&quot;morning&quot;, &quot;evening&quot;</p>
+              <p className="pl-3">],</p>
+              <p className="pl-3">&quot;duration&quot;: &quot;5 days&quot;</p>
+              <p>{"}"}</p>
+            </div>
+          </div>
+          <div className="space-y-1 border-t border-line px-5 py-4 text-sm">
+            <p>Your prescription is understood on-device before anything is sent for deeper reasoning.</p>
+            <p className="pt-2 text-xs tracking-wide">
+              <span className="font-medium text-sage-ink">LOCAL ✓</span>
+              <span className="mx-3 text-line">|</span>
+              <span className="text-cloud">CLOUD ONLY WHEN NEEDED</span>
+            </p>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="border-y border-line bg-surface">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-3">
+          {[
+            ["Read locally", "Gemma 4 reads your prescription photo and listens to your check-ins on your own machine."],
+            ["Explained when needed", "Only structured fields — never the photo or audio — go to Gemini for a plain-language explanation."],
+            ["Useful offline", "If the cloud is down, your medication plan and check-ins still work."],
+          ].map(([t, d]) => (
+            <div key={t}>
+              <h2 className="font-serif text-2xl">{t}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <p className="mx-auto max-w-6xl px-5 py-10 text-xs text-muted">
+        MediLens helps you understand and organize what your clinician prescribed. It does not diagnose, prescribe, or change your treatment.
+      </p>
+    </>
   );
 }
