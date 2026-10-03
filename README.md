@@ -302,3 +302,5 @@ MediLens is an organization and explanation aid, not a medical decision-maker. I
 
 The local-first design reduces exposure of sensitive inputs, but anyone deploying MediLens should still secure their database, environment variables, authentication secret, email provider, and hosting environment.
 
+
+### Made with ❤️ by Varad and Aman (Team Kernal hackers)
